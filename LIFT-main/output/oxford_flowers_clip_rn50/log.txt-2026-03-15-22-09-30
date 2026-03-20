@@ -1,0 +1,111 @@
+** Config **
+adapter: False
+adapter_dim: None
+adaptformer: False
+adaptformer_scale: learnable
+backbone: CLIP-RN50
+batch_size: 128
+bias_tuning: False
+bn_tuning: False
+classifier: CosineClassifier
+dataset: Oxford_Flowers
+deterministic: True
+expand: 24
+full_tuning: False
+gpu: 0
+imb_factor: None
+init_head: text_feat
+ln_tuning: False
+lora: False
+lora_mlp: False
+loss_type: CE
+lr: 0.01
+mask: False
+mask_ratio: None
+mask_seed: None
+micro_batch_size: 128
+model_dir: None
+momentum: 0.9
+num_epochs: 2
+num_workers: 0
+output_dir: ./output\oxford_flowers_clip_rn50
+partial: None
+prec: amp
+print_freq: 10
+prompt: default
+randaug_times: 1
+resolution: 224
+root: D:/1B.毕业设计/数据集
+scale: 25
+seed: 0
+ssf_attn: False
+ssf_ln: False
+ssf_mlp: False
+test_only: False
+test_train: False
+tte: False
+tte_mode: fivecrop
+vpt_deep: False
+vpt_len: None
+vpt_shallow: False
+weight_decay: 0.0005
+zero_shot: False
+************
+Setting fixed seed: 0
+mean: [0.48145466, 0.4578275, 0.40821073]
+std: [0.26862954, 0.26130258, 0.27577711]
+Total training points: 1020
+Building model
+Loading CLIP (backbone: CLIP-RN50)
+JIT load failed: open file failed because of errno 2 on fopen: No such file or directory, file path: D:\1B.毕业设计\CLIP_cache\RN50.pt
+Turning off gradients in the model
+Turning on gradients in the tuner
+Turning on gradients in the head
+Total params: 102125920
+Tuned params: 0
+Head params: 118784
+Initialize head with text features
+Initialize tensorboard (log_dir=./output\oxford_flowers_clip_rn50\tensorboard)
+epoch [1/2] batch [1/8] time 1.408 (1.408) data 0.848 (0.848) loss 4.6401 (4.6401) acc 13.2812 (13.2812) (mean 12.6471 many nan med nan few 12.6471) lr 1.0000e-02 eta 0:00:21
+epoch [1/2] batch [2/8] time 1.128 (1.268) data 0.833 (0.841) loss 4.5860 (4.6347) acc 10.1562 (12.9688) (mean 14.3137 many nan med nan few 14.3137) lr 1.0000e-02 eta 0:00:17
+epoch [1/2] batch [3/8] time 1.150 (1.229) data 0.857 (0.846) loss 4.5998 (4.6312) acc 13.2812 (13.0000) (mean 14.6982 many nan med nan few 14.6982) lr 1.0000e-02 eta 0:00:15
+epoch [1/2] batch [4/8] time 1.395 (1.270) data 1.105 (0.911) loss 4.6116 (4.6292) acc 10.1562 (12.7156) (mean 14.1826 many nan med nan few 14.1826) lr 1.0000e-02 eta 0:00:15
+epoch [1/2] batch [5/8] time 1.143 (1.245) data 0.858 (0.900) loss 4.4227 (4.6086) acc 14.0625 (12.8503) (mean 13.8659 many nan med nan few 13.8659) lr 1.0000e-02 eta 0:00:13
+epoch [1/2] batch [6/8] time 1.128 (1.225) data 0.833 (0.889) loss 4.4471 (4.5924) acc 17.9688 (13.3622) (mean 14.3412 many nan med nan few 14.3412) lr 1.0000e-02 eta 0:00:12
+epoch [1/2] batch [7/8] time 1.102 (1.208) data 0.806 (0.877) loss 4.6545 (4.5986) acc 9.3750 (12.9634) (mean 13.9377 many nan med nan few 13.9377) lr 1.0000e-02 eta 0:00:10
+epoch [1/2] batch [8/8] time 1.066 (1.190) data 0.773 (0.864) loss 4.4827 (4.5870) acc 16.1290 (13.2800) (mean 14.1128 many nan med nan few 14.1128) lr 1.0000e-02 eta 0:00:09
+epoch [2/2] batch [1/8] time 1.101 (1.180) data 0.811 (0.858) loss 4.3984 (4.5682) acc 14.0625 (13.3582) (mean 13.9853 many nan med nan few 13.9853) lr 5.0000e-03 eta 0:00:08
+epoch [2/2] batch [2/8] time 1.341 (1.196) data 1.065 (0.879) loss 4.2341 (4.5348) acc 17.1875 (13.7412) (mean 14.0752 many nan med nan few 14.0752) lr 5.0000e-03 eta 0:00:07
+epoch [2/2] batch [3/8] time 1.136 (1.191) data 0.848 (0.876) loss 4.3181 (4.5131) acc 16.4062 (14.0077) (mean 14.3409 many nan med nan few 14.3409) lr 5.0000e-03 eta 0:00:05
+epoch [2/2] batch [4/8] time 1.117 (1.185) data 0.823 (0.872) loss 4.1901 (4.4808) acc 16.4062 (14.2475) (mean 14.6387 many nan med nan few 14.6387) lr 5.0000e-03 eta 0:00:04
+epoch [2/2] batch [5/8] time 1.105 (1.178) data 0.810 (0.867) loss 4.4709 (4.4798) acc 10.1562 (13.8384) (mean 14.6583 many nan med nan few 14.6583) lr 5.0000e-03 eta 0:00:03
+epoch [2/2] batch [6/8] time 1.092 (1.172) data 0.797 (0.862) loss 4.1469 (4.4465) acc 21.8750 (14.6421) (mean 15.0369 many nan med nan few 15.0369) lr 5.0000e-03 eta 0:00:02
+epoch [2/2] batch [7/8] time 1.105 (1.168) data 0.831 (0.860) loss 4.2122 (4.4231) acc 19.5312 (15.1310) (mean 15.4265 many nan med nan few 15.4265) lr 5.0000e-03 eta 0:00:01
+epoch [2/2] batch [8/8] time 1.102 (1.164) data 0.821 (0.857) loss 4.3373 (4.4145) acc 13.7097 (14.9889) (mean 15.7143 many nan med nan few 15.7143) lr 5.0000e-03 eta 0:00:00
+Finish training
+Note that the printed training acc is not precise. To get precise training acc, use option ``test_train True``.
+Time elapsed: 0:00:19
+Checkpoint saved to ./output\oxford_flowers_clip_rn50\checkpoint.pth.tar
+Evaluate on the test set
+=> result
+* total: 6,149
+* correct: 785
+* accuracy: 12.8%
+* error: 87.2%
+* macro_f1: 13.4%
+* class acc: [ 45.     7.5   40.    66.67  17.78  88.    70.   100.    96.15  92.
+  89.55  97.01  96.55 100.   100.     0.    98.46  83.87  86.21  94.44
+  40.     2.56  95.77  18.18   0.     0.    10.     0.    68.97   3.08
+   0.     0.     3.85   5.     0.     0.     0.    30.56   0.     0.
+   0.     0.     0.    26.03   0.     0.57   0.     0.     0.     0.
+   0.     0.     0.     0.     0.     0.     0.     0.     0.     0.
+   0.    11.43   0.     6.25   0.     9.76   0.     0.    50.     0.
+   0.     0.     0.     0.     0.     0.     0.     0.     0.     0.
+   0.     0.     0.     0.     6.98   0.     0.     0.     0.     0.
+   0.     0.     7.69   0.     0.     0.    19.57   0.     0.     0.
+   0.     0.  ]
+* worst_case_acc: 0.0%
+* hmean_acc: 0.0%
+* gmean_acc: 0.0%
+* many: nan%  med: nan%  few: 18.5%
+* average: 18.5%
