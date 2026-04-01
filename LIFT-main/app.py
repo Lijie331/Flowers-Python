@@ -15,11 +15,12 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 # 设置CLIP缓存目录
 os.environ['CLIP_CACHE_DIR'] = r'D:\1B.毕业设计\CLIP_cache'
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import torch
 from PIL import Image
 from torchvision import transforms
+import pymysql
 
 from clip import clip
 
@@ -29,6 +30,30 @@ sys.path.insert(0, r'D:\1B.毕业设计\Code - 副本\LIFT-main')
 app = Flask(__name__)
 CORS(app)
 
+
+# ============== 数据库配置 ==============
+DB_CONFIG = {
+    'host': 'localhost',
+    'port': 3306,
+    'user': 'root',
+    'password': '314331',
+    'database': 'tlj',
+    'charset': 'utf8mb4'
+}
+
+# ============== 图片配置 ==============
+# 图片数据集路径（用于从数据库读取的图片路径）
+IMAGE_BASE_URL = r'D:\1B.毕业设计\数据集\ChineseFlowers120'
+
+def get_db_connection():
+    """获取数据库连接"""
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        print("数据库连接成功")
+        return conn
+    except Exception as e:
+        print(f"数据库连接失败: {e}")
+        return None
 
 # ============== 花卉信息配置 ==============
 # 花卉信息JSON文件路径
@@ -369,6 +394,242 @@ def get_flower_info(class_id):
         }), 404
 
 
+# ============== 百科搜索API ==============
+@app.route('/api/encyclopedia/search', methods=['GET'])
+def search_flowers():
+    """搜索花卉百科"""
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        category_id = request.args.get('category_id', '')
+        page = int(request.args.get('page', 1))
+        page_size = int(request.args.get('page_size', 10))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        where_conditions = []
+        params = []
+        
+        if keyword:
+            where_conditions.append("(chinese_name LIKE %s OR latin_name LIKE %s OR family LIKE %s OR genus LIKE %s)")
+            like_keyword = f'%{keyword}%'
+            params.extend([like_keyword, like_keyword, like_keyword, like_keyword])
+        
+        if category_id:
+            where_conditions.append("(category_id = %s OR family = %s OR genus = %s)")
+            params.extend([category_id, category_id, category_id])
+        
+        where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+        
+        # 查询总数
+        count_sql = f"SELECT COUNT(*) as total FROM flowers {where_clause}"
+        cursor.execute(count_sql, params)
+        total = cursor.fetchone()['total']
+        
+        # 分页查询
+        offset = (page - 1) * page_size
+        query_sql = f"""
+            SELECT id, chinese_name, latin_name, family, genus, 
+                   morphology, habitat, growth_habit, ornamental_value,
+                   care_methods, flower_language, category_id, image_url, data_source
+            FROM flowers {where_clause} 
+            ORDER BY id 
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(query_sql, params + [page_size, offset])
+        flowers = cursor.fetchall()
+        
+        # 处理图片信息
+        for flower in flowers:
+            if flower.get('image_url'):
+                try:
+                    # 尝试解析JSON格式的图片数据 {"count": N, "images": [{"filename": "...", "relative_path": "...", "absolute_path": "..."}, ...]}
+                    image_data = json.loads(flower['image_url'])
+                    
+                    if isinstance(image_data, dict) and 'images' in image_data:
+                        # 新格式: 完整的JSON对象
+                        images_list = image_data.get('images', [])
+                        
+                        # 提取相对路径，支持多种数据格式
+                        flower_images = []
+                        for img in images_list:
+                            if isinstance(img, dict):
+                                # 字典格式: {"filename": "...", "relative_path": "...", ...}
+                                if 'relative_path' in img:
+                                    flower_images.append(f'/api/images/{img["relative_path"]}')
+                                elif 'filename' in img and flower.get('chinese_name'):
+                                    # 如果没有relative_path，但有filename和花卉名，构建路径
+                                    flower_images.append(f'/api/images/{flower["chinese_name"]}/{img["filename"]}')
+                                elif 'absolute_path' in img:
+                                    # 如果有绝对路径，转换为相对路径
+                                    # 假设路径格式: D:/1B.毕业设计/数据集/ChineseFlowers120/花卉名/xxx.jpg
+                                    abs_path = img['absolute_path']
+                                    parts = abs_path.split('ChineseFlowers120/')
+                                    if len(parts) > 1:
+                                        flower_images.append(f'/api/images/{parts[1].replace("\\\\", "/")}')
+                            elif isinstance(img, str):
+                                # 字符串格式: 直接使用
+                                flower_images.append(f'/api/images/{img}')
+                        
+                        flower['images'] = flower_images[:20]  # 限制最多20张图片
+                        
+                        # 设置主图
+                        if 'primary_image' in image_data and image_data['primary_image']:
+                            flower['image_url'] = f'/api/images/{image_data["primary_image"]}'
+                        elif flower['images']:
+                            flower['image_url'] = flower['images'][0]
+                        else:
+                            flower['image_url'] = None
+                            
+                        # 添加图片总数信息
+                        flower['total_images'] = len(flower_images)
+                        
+                    elif isinstance(image_data, list):
+                        # JSON数组格式
+                        flower['images'] = [f'/api/images/{img}' for img in image_data[:20]]
+                        flower['image_url'] = flower['images'][0] if flower['images'] else None
+                        flower['total_images'] = len(image_data)
+                        
+                    else:
+                        # 其他字典格式
+                        flower['images'] = []
+                        flower['image_url'] = None
+                        flower['total_images'] = 0
+                        
+                except (json.JSONDecodeError, TypeError):
+                    # 旧格式: 逗号分隔的字符串
+                    image_paths = str(flower['image_url']).split(',')
+                    flower['images'] = [f'/api/images/{path.strip()}' for path in image_paths if path.strip()][:20]
+                    flower['image_url'] = flower['images'][0] if flower['images'] else None
+                    flower['total_images'] = len(image_paths)
+            else:
+                flower['images'] = []
+                flower['image_url'] = None
+                flower['total_images'] = 0
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'flowers': flowers,
+                'pagination': {
+                    'page': page,
+                    'page_size': page_size,
+                    'total': total,
+                    'total_pages': (total + page_size - 1) // page_size
+                }
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/encyclopedia/detail/<int:flower_id>', methods=['GET'])
+def get_flower_detail(flower_id):
+    """获取花卉详情"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("""
+            SELECT id, chinese_name, latin_name, family, genus,
+                   morphology, habitat, growth_habit, ornamental_value,
+                   care_methods, flower_language, category_id, image_url, 
+                   data_source, collected_date
+            FROM flowers WHERE id = %s
+        """, (flower_id,))
+        flower = cursor.fetchone()
+        
+        # 处理图片路径
+        if flower and flower.get('image_url'):
+            try:
+                image_data = json.loads(flower['image_url'])
+                if isinstance(image_data, dict) and 'images' in image_data:
+                    flower['images'] = [f'/api/images/{img["relative_path"]}' for img in image_data.get('images', [])]
+                elif isinstance(image_data, list):
+                    flower['images'] = [f'/api/images/{img}' for img in image_data]
+                else:
+                    flower['images'] = []
+                flower['image_url'] = flower['images'][0] if flower['images'] else None
+            except (json.JSONDecodeError, TypeError):
+                image_paths = str(flower['image_url']).split(',')
+                flower['images'] = [f'/api/images/{path.strip()}' for path in image_paths if path.strip()]
+                flower['image_url'] = flower['images'][0] if flower['images'] else None
+        elif flower:
+            flower['images'] = []
+        
+        conn.close()
+        
+        if flower:
+            return jsonify({'success': True, 'data': flower})
+        else:
+            return jsonify({'success': False, 'error': '花卉不存在'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============== 图片服务接口 ==============
+@app.route('/api/images/<path:filename>')
+def serve_image(filename):
+    """提供图片访问服务"""
+    import os
+    try:
+        # 构建完整文件路径
+        file_path = os.path.join(IMAGE_BASE_URL, filename)
+        file_path = os.path.normpath(file_path)
+        
+        # 安全检查：确保路径在IMAGE_BASE_URL内
+        if not file_path.startswith(os.path.normpath(IMAGE_BASE_URL)):
+            return 'Forbidden', 403
+        
+        if os.path.exists(file_path):
+            # 根据文件扩展名确定MIME类型
+            ext = os.path.splitext(filename)[1].lower()
+            mime_types = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }
+            mime_type = mime_types.get(ext, 'application/octet-stream')
+            return send_file(file_path, mimetype=mime_type)
+        else:
+            return 'Image not found', 404
+    except Exception as e:
+        return str(e), 500
+
+
+@app.route('/api/encyclopedia/categories', methods=['GET'])
+def get_categories():
+    """获取分类
+    参数:
+        type: 分类类型 - 'family'(科) 或 'genus'(属)，默认'family'
+    """
+    try:
+        cat_type = request.args.get('type', 'family')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        if cat_type == 'genus':
+            cursor.execute("""
+                SELECT DISTINCT genus as name FROM flowers 
+                WHERE genus IS NOT NULL AND genus != '' ORDER BY genus
+            """)
+        else:
+            cursor.execute("""
+                SELECT DISTINCT family as name FROM flowers 
+                WHERE family IS NOT NULL AND family != '' ORDER BY family
+            """)
+        
+        categories = cursor.fetchall()
+        conn.close()
+        return jsonify({'success': True, 'categories': [c['name'] for c in categories], 'type': cat_type})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     print("=" * 50)
     print("Flower Recognition API Server")
@@ -378,6 +639,9 @@ if __name__ == '__main__':
     print("  POST /api/classify       - Classify flower image")
     print("  GET  /api/classes        - List all flower classes")
     print("  GET  /api/flower-info/<id> - Get flower details")
+    print("  GET  /api/encyclopedia/search - Search encyclopedia")
+    print("  GET  /api/encyclopedia/detail/<id> - Get flower detail")
+    print("  GET  /api/encyclopedia/categories - Get categories")
     print("")
     print(f"Flower classes loaded from: {FLOWER_CLASSES_FILE}")
     print("")
